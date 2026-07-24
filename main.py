@@ -72,31 +72,63 @@ index.add(embeddings_np)
 bm25 = build_bm25_index(all_chunks)
 
 #-----------------------------------
-
 query = "how does quantization neural network work"
-query_embedding = ollama.embed(
-    model = 'nomic-embed-text',
-    input = [query]
-)['embeddings']
-query_vec = np.array(query_embedding, dtype='float32')
-distances, faiss_ranked = index.search(query_vec, k=10)
-faiss_ranked = faiss_ranked[0]
 
-tokenised_query = query.lower().split()
-scores = bm25.get_scores(tokenised_query)
-bm25_ranked = np.argsort(scores)[::-1][:10]
+def retrieval_loop(query, index, bm25, all_chunks, k=10):
+    query_embedding = ollama.embed(
+        model = 'nomic-embed-text',
+        input = [query]
+    )['embeddings']
+    query_vec = np.array(query_embedding, dtype='float32')
+    distances, faiss_ranked = index.search(query_vec, k)
+    faiss_ranked = faiss_ranked[0]
 
-ranks = reciprocal_rank_fusion(faiss_ranked, bm25_ranked)
+    tokenised_query = query.lower().split()
+    scores = bm25.get_scores(tokenised_query)
+    bm25_ranked = np.argsort(scores)[::-1][:k]
 
-sorted_ranks = sorted(ranks.items(), key=lambda x: x[1], reverse=True)
+    ranks = reciprocal_rank_fusion(faiss_ranked, bm25_ranked)
 
-top_chunks=[]
-for chunk_idx, score in sorted_ranks[:5]:
-    chunk_idx = int(chunk_idx)
-    top_chunks.append(all_chunks[chunk_idx])
+    sorted_ranks = sorted(ranks.items(), key=lambda x: x[1], reverse=True)
+
+    top_chunks=[]
+    for chunk_idx, score in sorted_ranks[:5]:
+        chunk_idx = int(chunk_idx)
+        top_chunks.append(all_chunks[chunk_idx])
+
+    return top_chunks
+
+def judge_sufficiency(query, chunks):
+    context = "\n\n".join(c['text'] for c in chunks)
+
+    prompt = f"""Question: {query} 
+
+    Context: {context}
+
+    Does the retrieved context contain enough information to fully answer the question?
+    if yes, respond with exactly : SUFFICIENT
+    if no, respond with exactly : SEARCH <a better search query to find the missing information>
+    """
+
+    response = ollama.generate(model="llama3.1:8b", prompt=prompt)
+    return response['response'].strip()
+
+def agentic_rag(query, index, bm25, all_chunks, max_iterations=3):
+    top_chunks_retrieved=[]
+    curr_query = query
+
+    for i in range(max_iterations):
+        top_chunks = retrieval_loop(curr_query, index, bm25, all_chunks)
+        top_chunks_retrieved.extend(top_chunks)
+
+        decision = judge_sufficiency(query, top_chunks_retrieved)
+        if decision == "SUFFICIENT":
+            break
+        curr_query = decision.replace("SEARCH", "").strip()        
+
+    return generate_answer(curr_query, top_chunks_retrieved)
 
 #-----------------------------------
 #-----------------------------------
-
-answer = generate_answer(query, top_chunks)
+answer = agentic_rag(query, index, bm25, all_chunks, max_iterations=3)
 print(answer)
