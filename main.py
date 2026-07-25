@@ -1,86 +1,40 @@
-import urllib.request
-import feedparser
-import fitz
-import os
+import asyncio
+import json
+import threading
+from contextlib import asynccontextmanager
+
 import numpy as np
-import re
 import ollama
-import faiss
-from rank_bm25 import BM25Okapi
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel
 
-from ingestion import search_arxiv, download_pdf, extract_text, clean_text, chunk_paper, PAPERS_DIR
-from retrieval import embed_chunks, build_bm25_index, reciprocal_rank_fusion
-from generation import generate_answer
-
-BASE_URL = "http://export.arxiv.org/api/query?"
-
-#-------------------------------------
-#-------------------------------------
+from pipeline import load_or_build_pipeline
+from retrieval import reciprocal_rank_fusion
 
 
-papers=[]
-topics = {
-    'quantization': 'cat:cs.LG AND all:"quantization" AND all:"neural network"',
-    'pruning': 'cat:cs.LG AND all:"pruning" AND all:"neural network"',
-    'distillation': 'cat:cs.LG AND all:"knowledge distillation"',
-}
-for i in topics:
-    papers += search_arxiv(topics[i], max_results=10)
-
-paper_ids=[]
-
-for paper in papers:
-    paper_ids.append(paper['pdf_url'].split('/')[-1])
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Loading pipeline...")
+    index, bm25, all_chunks = await asyncio.to_thread(load_or_build_pipeline)
+    app.state.index = index
+    app.state.bm25 = bm25
+    app.state.all_chunks = all_chunks
+    print(f"Pipeline ready — {len(all_chunks)} chunks loaded.")
+    yield
 
 
-for i in range(len(papers)):
-    download_pdf(papers[i]['pdf_url'], paper_ids[i])
-    papers[i]['text'] = extract_text(os.path.join(PAPERS_DIR, paper_ids[i]))
+app = FastAPI(lifespan=lifespan)
 
-for i in range(len(papers)):
-    papers[i]['text'] = clean_text(papers[i]['text'])
 
-for i in range(len(papers)):
-    papers[i]['chunks'] = chunk_paper(papers[i]['text'], 1000, 200)
+class QueryRequest(BaseModel):
+    query: str
 
-all_chunks = []
 
-for paper in papers:
-    for chunk in paper['chunks']:
-        all_chunks.append({
-            'text':chunk,
-            'paper_title':paper['title'],
-            'pdf_url':paper['pdf_url']
-        })
-
-chunk_text = [c['text'] for c in all_chunks]
-
-embeddings = embed_chunks(chunk_text)
-#-------------------------------------
-
-#first, converting list to numpy
-embeddings_np = np.array(embeddings, dtype='float32')
-print("Embedding shape: ", embeddings_np.shape)
-
-#FAISS
-
-d = embeddings_np.shape[1] #dimension of first chunk vector
-index = faiss.IndexFlatL2(d)
-
-index.add(embeddings_np)
-
-bm25 = build_bm25_index(all_chunks)
-
-#-----------------------------------
-query = "how does quantization neural network work"
-
-def retrieval_loop(query, index, bm25, all_chunks, k=10):
-    query_embedding = ollama.embed(
-        model = 'nomic-embed-text',
-        input = [query]
-    )['embeddings']
-    query_vec = np.array(query_embedding, dtype='float32')
-    distances, faiss_ranked = index.search(query_vec, k)
+def _retrieval_loop(query: str, index, bm25, all_chunks, k: int = 10):
+    query_embedding = ollama.embed(model="nomic-embed-text", input=[query])["embeddings"]
+    query_vec = np.array(query_embedding, dtype="float32")
+    _, faiss_ranked = index.search(query_vec, k)
     faiss_ranked = faiss_ranked[0]
 
     tokenised_query = query.lower().split()
@@ -88,47 +42,114 @@ def retrieval_loop(query, index, bm25, all_chunks, k=10):
     bm25_ranked = np.argsort(scores)[::-1][:k]
 
     ranks = reciprocal_rank_fusion(faiss_ranked, bm25_ranked)
-
     sorted_ranks = sorted(ranks.items(), key=lambda x: x[1], reverse=True)
+    return [all_chunks[int(idx)] for idx, _ in sorted_ranks[:5]]
 
-    top_chunks=[]
-    for chunk_idx, score in sorted_ranks[:5]:
-        chunk_idx = int(chunk_idx)
-        top_chunks.append(all_chunks[chunk_idx])
 
-    return top_chunks
+def _judge_sufficiency(query: str, chunks: list) -> str:
+    context = "\n\n".join(c["text"] for c in chunks)
+    prompt = f"""Question: {query}
 
-def judge_sufficiency(query, chunks):
-    context = "\n\n".join(c['text'] for c in chunks)
+Context: {context}
 
-    prompt = f"""Question: {query} 
+Does the retrieved context contain enough information to fully answer the question?
+if yes, respond with exactly: SUFFICIENT
+if no, respond with exactly: SEARCH <a better search query to find the missing information>
+"""
+    return ollama.generate(model="llama3.1:8b", prompt=prompt)["response"].strip()
 
-    Context: {context}
 
-    Does the retrieved context contain enough information to fully answer the question?
-    if yes, respond with exactly : SUFFICIENT
-    if no, respond with exactly : SEARCH <a better search query to find the missing information>
-    """
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
 
-    response = ollama.generate(model="llama3.1:8b", prompt=prompt)
-    return response['response'].strip()
 
-def agentic_rag(query, index, bm25, all_chunks, max_iterations=3):
-    top_chunks_retrieved=[]
-    curr_query = query
+async def _stream_agentic_rag(query: str, index, bm25, all_chunks, max_iterations: int = 3):
+    try:
+        top_chunks_retrieved = []
+        curr_query = query
 
-    for i in range(max_iterations):
-        top_chunks = retrieval_loop(curr_query, index, bm25, all_chunks)
-        top_chunks_retrieved.extend(top_chunks)
+        for i in range(max_iterations):
+            status = "Searching..." if i == 0 else "Searching again..."
+            yield _sse({"type": "status", "message": status})
 
-        decision = judge_sufficiency(query, top_chunks_retrieved)
-        if decision == "SUFFICIENT":
-            break
-        curr_query = decision.replace("SEARCH", "").strip()        
+            chunks = await asyncio.to_thread(_retrieval_loop, curr_query, index, bm25, all_chunks)
+            top_chunks_retrieved.extend(chunks)
 
-    return generate_answer(curr_query, top_chunks_retrieved)
+            yield _sse({"type": "status", "message": "Checking sufficiency..."})
+            decision = await asyncio.to_thread(_judge_sufficiency, query, top_chunks_retrieved)
 
-#-----------------------------------
-#-----------------------------------
-answer = agentic_rag(query, index, bm25, all_chunks, max_iterations=3)
-print(answer)
+            if "SUFFICIENT" in decision:
+                break
+            curr_query = decision.replace("SEARCH", "").strip()
+
+        yield _sse({"type": "status", "message": "Generating answer..."})
+
+        context = "\n\n".join(c["text"] for c in top_chunks_retrieved)
+        prompt = f"""Answer the question thoroughly using only the context below.
+Structure your answer with:
+- A brief direct answer first
+- Supporting details organized under clear headings
+- Cite which paper each point comes from, by title
+
+Context:
+{context}
+
+Question: {query}
+
+Answer:"""
+
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def _run_stream():
+            try:
+                for chunk in ollama.generate(model="llama3.1:8b", prompt=prompt, stream=True):
+                    token = chunk["response"] if isinstance(chunk, dict) else getattr(chunk, "response", "")
+                    if token:
+                        asyncio.run_coroutine_threadsafe(queue.put(token), loop)
+            except Exception as exc:
+                asyncio.run_coroutine_threadsafe(queue.put(exc), loop)
+            finally:
+                asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+
+        thread = threading.Thread(target=_run_stream, daemon=True)
+        thread.start()
+
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            if isinstance(item, Exception):
+                yield _sse({"type": "error", "message": str(item)})
+                break
+            yield _sse({"type": "token", "text": item})
+
+        yield _sse({"type": "done"})
+
+    except Exception as exc:
+        yield _sse({"type": "error", "message": str(exc)})
+        yield _sse({"type": "done"})
+
+
+@app.post("/ask")
+async def ask(body: QueryRequest, request: Request):
+    return StreamingResponse(
+        _stream_agentic_rag(
+            body.query,
+            request.app.state.index,
+            request.app.state.bm25,
+            request.app.state.all_chunks,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@app.get("/")
+async def root():
+    with open("static/index.html") as f:
+        return HTMLResponse(f.read())

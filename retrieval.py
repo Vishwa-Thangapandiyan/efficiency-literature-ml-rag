@@ -42,3 +42,5 @@ def reciprocal_rank_fusion(faiss_ranked, bm25_ranked, k=60):
     
     return rrf_scores
 
+
+

@@ -15,14 +15,18 @@ from rank_bm25 import BM25Okapi
 def generate_answer(query, top_chunks):
     context = "\n\n".join([c['text'] for c in top_chunks])
 
-    prompt = f"""Answer the question using only the context below.
-    
-    Context:
-    {context}
+    prompt = f"""Answer the question thoroughly using only the context below.
+            Structure your answer with:
+            - A brief direct answer first
+            - Supporting details organized under clear headings
+            - Cite which paper each point comes from, by title
 
-    Question : {query}
+            Context:
+            {context}
 
-    Answer:"""
+            Question: {query}
+
+            Answer:"""
 
     response = ollama.generate(model='llama3.1:8b', prompt = prompt)
     return response['response']
