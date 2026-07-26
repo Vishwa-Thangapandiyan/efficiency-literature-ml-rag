@@ -4,13 +4,13 @@ A literature-navigation tool for the fragmented model-efficiency research area (
 
 ## Architecture
 
-![Architecture diagram](docs/architecture-diagram.png)
+![Architecture diagram](docs/architecture_diagram.png)
 
 Pipeline: arXiv ingestion → clean → chunk (RecursiveCharacterTextSplitter) → embed (nomic-embed-text) → FAISS + BM25 hybrid index → RRF fusion → agentic loop (LLM judges sufficiency, re-retrieves if needed) → generation (Llama 3.1:8b)
 
 ## Demo
 
-![Frontend screenshot](docs/frontend-screenshot.png)
+![Frontend screenshot](docs/frontend_screenshot.png)
 
 ## Why hybrid + agentic (not just vanilla RAG)
 
