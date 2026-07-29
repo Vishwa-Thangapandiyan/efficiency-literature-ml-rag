@@ -1,0 +1,122 @@
+[
+  {
+    "question": "What is post-training quantization (PTQ)?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What is quantization-aware training (QAT)?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 3.6666666666666665
+  },
+  {
+    "question": "What is mixed-precision quantization and why is it used?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What did ternary weight networks (TTQ) demonstrate about quantized model accuracy?",
+    "type": "single-topic",
+    "baseline_score": 3.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What is the lottery ticket hypothesis?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What is unstructured pruning?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What is structured pruning?",
+    "type": "single-topic",
+    "baseline_score": 3.6666666666666665,
+    "agentic_score": 3.0
+  },
+  {
+    "question": "What is pruning at initialization (PaI), and how does it differ from pruning after training (PaT)?",
+    "type": "single-topic",
+    "baseline_score": 4.666666666666667,
+    "agentic_score": 4.666666666666667
+  },
+  {
+    "question": "What is knowledge distillation, and what is \"dark knowledge\"?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "How are knowledge distillation and label smoothing regularization (LSR) related, according to \"Revisiting Knowledge Distillation via Label Smoothing Regularization\"?",
+    "type": "single-topic",
+    "baseline_score": 4.666666666666667,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What did \"On the Efficacy of Knowledge Distillation\" find about the relationship between teacher accuracy and student performance?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "What question does \"What Knowledge Gets Distilled in Knowledge Distillation?\" investigate, and what does it find?",
+    "type": "single-topic",
+    "baseline_score": 4.0,
+    "agentic_score": 4.666666666666667
+  },
+  {
+    "question": "How have pruning and quantization historically been combined in model compression pipelines?",
+    "type": "multi-hop",
+    "baseline_score": 3.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "How does MPTs' approach to combining pruning and quantization differ from the standard sequential pipeline?",
+    "type": "multi-hop",
+    "baseline_score": 4.0,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "How does quantization's accuracy/compression trade-off compare to pruning and distillation, per the Low-bit Model Quantization survey?",
+    "type": "multi-hop",
+    "baseline_score": 4.666666666666667,
+    "agentic_score": 4.0
+  },
+  {
+    "question": "How is knowledge distillation used to reduce the accuracy loss caused by quantizing vision models like DETR and ViT?",
+    "type": "multi-hop",
+    "baseline_score": 3.0,
+    "agentic_score": 3.0
+  },
+  {
+    "question": "How does ZeroQuant's use of distillation during quantization differ from typical end-to-end approaches?",
+    "type": "multi-hop",
+    "baseline_score": 4.666666666666667,
+    "agentic_score": 4.666666666666667
+  },
+  {
+    "question": "How does GPUSQ-ViT combine feature distillation loss with its quantization loss?",
+    "type": "multi-hop",
+    "baseline_score": 3.0,
+    "agentic_score": 4.666666666666667
+  },
+  {
+    "question": "How does the ordering of pruning and distillation affect results, per Park and No's approach described in the pruning survey?",
+    "type": "multi-hop",
+    "baseline_score": 3.0,
+    "agentic_score": 3.0
+  },
+  {
+    "question": "How does recovering accuracy after pruning via knowledge distillation compare to standard fine-tuning?",
+    "type": "multi-hop",
+    "baseline_score": 2.0,
+    "agentic_score": 4.0
+  }
+]

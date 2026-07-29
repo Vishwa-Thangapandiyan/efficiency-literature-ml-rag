@@ -44,3 +44,14 @@ def reciprocal_rank_fusion(faiss_ranked, bm25_ranked, k=60):
 
 
 
+def baseline_retrieve(query, index, all_chunks, k=5):
+    query_embeddings = ollama.embed(
+        model = 'nomic-embed-text',
+        input = [query]
+    )['embeddings']
+    embeddings_np = np.array(query_embeddings, dtype='float32')
+    distances, faiss_ranked = index.search(embeddings_np, k)
+    faiss_ranked = faiss_ranked[0]
+
+    top_chunks = [all_chunks[int(idx)] for idx in faiss_ranked]
+    return top_chunks

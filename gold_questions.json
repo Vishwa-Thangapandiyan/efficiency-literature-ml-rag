@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "question": "What is post-training quantization (PTQ)?",
+    "type": "single-topic",
+    "reference_answer": "PTQ quantizes an already-trained neural network's weights (and activations) to lower precision without any additional training or retraining. It is typically used when sufficient training data isn't available to retrain the model, in contrast to quantization-aware training (QAT), which does retrain the model after quantizing it."
+  },
+  {
+    "id": 2,
+    "question": "What is quantization-aware training (QAT)?",
+    "type": "single-topic",
+    "reference_answer": "QAT quantizes a network's weights and then retrains (fine-tunes) it, running forward passes with quantized values so the model can learn to correct the accuracy loss caused by quantization rounding errors. Because it lets the model adapt to quantization noise, QAT generally preserves accuracy better than post-training quantization, at the cost of needing training data and extra compute."
+  },
+  {
+    "id": 3,
+    "question": "What is mixed-precision quantization and why is it used?",
+    "type": "single-topic",
+    "reference_answer": "Mixed-precision quantization assigns different bit-widths to different weights or activations instead of forcing the entire network to a single uniform precision. It exists because a uniform bit-width is constrained by the network's most sensitive layer, which needs more bits to avoid accuracy loss, while other, less-sensitive layers could use fewer bits — mixed precision lets those layers use fewer bits to improve the overall compression ratio."
+  },
+  {
+    "id": 4,
+    "question": "What did ternary weight networks (TTQ) demonstrate about quantized model accuracy?",
+    "type": "single-topic",
+    "reference_answer": "Ternary weight networks (TTQ), which quantize weights to just three values, produced ResNets that outperformed full-precision floating-point ResNets on CIFAR-10 by less than 0.5%. This showed that an aggressively low-bit quantization scheme can match, or even slightly exceed, full-precision accuracy in some settings."
+  },
+  {
+    "id": 5,
+    "question": "What is the lottery ticket hypothesis?",
+    "type": "single-topic",
+    "reference_answer": "The lottery ticket hypothesis (Frankle & Carbin) states that dense, randomly-initialized feed-forward networks contain sparse \"winning ticket\" subnetworks that, when trained in isolation from that same initialization, reach test accuracy comparable to the original dense network in a similar number of training iterations. These winning tickets are typically found via iterative magnitude pruning: train, prune the smallest-magnitude weights, reset the surviving weights to their original initial values, and repeat."
+  },
+  {
+    "id": 6,
+    "question": "What is unstructured pruning?",
+    "type": "single-topic",
+    "reference_answer": "Unstructured pruning, also called weight-wise pruning, is the finest-grained pruning approach: given a target number of non-zero weights, it zeroes out (or masks) individual weights anywhere in the network without regard to their position. Because the resulting sparsity pattern is irregular, realizing actual inference speedups from unstructured pruning generally requires specialized sparse-computation hardware or software."
+  },
+  {
+    "id": 7,
+    "question": "What is structured pruning?",
+    "type": "single-topic",
+    "reference_answer": "Structured pruning removes entire structural units — filters, channels, transformer attention heads, or whole layers — rather than individual weights, given a target prune ratio, producing a smaller model with a regular, dense structure. Because the resulting network stays regularly shaped, structured pruning speeds up inference and reduces model size without needing specialized sparse-matrix hardware or software."
+  },
+  {
+    "id": 8,
+    "question": "What is pruning at initialization (PaI), and how does it differ from pruning after training (PaT)?",
+    "type": "single-topic",
+    "reference_answer": "Pruning at initialization prunes a randomly-initialized dense network before any training takes place, aiming to find a sparse subnetwork that can then be trained from scratch to reach accuracy close to the full dense network — unlike pruning after training (PaT), which prunes a model that has already been trained. PaI was long believed to underperform PaT until approaches like the lottery ticket hypothesis and SNIP showed that sparse networks identified at initialization could be trained to full accuracy."
+  },
+  {
+    "id": 9,
+    "question": "What is knowledge distillation, and what is \"dark knowledge\"?",
+    "type": "single-topic",
+    "reference_answer": "Knowledge distillation trains a smaller \"student\" network to mimic a larger, higher-capacity \"teacher\" network by learning from the teacher's soft output probabilities (soft targets) rather than only the one-hot ground-truth labels. These soft targets are commonly believed to carry \"dark knowledge\" — additional information about the similarity between different classes that isn't present in hard labels."
+  },
+  {
+    "id": 10,
+    "question": "How are knowledge distillation and label smoothing regularization (LSR) related, according to \"Revisiting Knowledge Distillation via Label Smoothing Regularization\"?",
+    "type": "single-topic",
+    "reference_answer": "The paper argues that KD is effectively a learned form of label smoothing: both combine the one-hot ground-truth label with a smoothing distribution, but in KD that smoothing distribution comes from a trained teacher model, whereas in standard LSR it is manually designed (e.g., uniform). The authors summarize this relationship by describing KD as \"a learned LSR\" and LSR as \"an ad-hoc KD.\""
+  },
+  {
+    "id": 11,
+    "question": "What did \"On the Efficacy of Knowledge Distillation\" find about the relationship between teacher accuracy and student performance?",
+    "type": "single-topic",
+    "reference_answer": "The paper found that more accurate teachers don't necessarily make better teachers for distillation, because larger, higher-capacity teachers often fail to improve the student any more than smaller teachers do. It attributes this to a capacity mismatch — small students are unable to effectively mimic much larger teachers — and found that common workarounds like chaining multiple distillation steps were ineffective, while stopping the teacher's training early helped mitigate the effect."
+  },
+  {
+    "id": 12,
+    "question": "What question does \"What Knowledge Gets Distilled in Knowledge Distillation?\" investigate, and what does it find?",
+    "type": "single-topic",
+    "reference_answer": "The paper investigates what specifically transfers from teacher to student during distillation beyond task accuracy — for example, whether the student comes to localize objects the same way, gets fooled by the same adversarial examples, or acquires similar data-invariance properties as the teacher. It finds that existing knowledge distillation methods can indeed indirectly transfer these teacher properties to the student, beyond simply improving the student's task performance."
+  },
+  {
+    "id": 13,
+    "question": "How have pruning and quantization historically been combined in model compression pipelines?",
+    "type": "multi-hop",
+    "reference_answer": "Han et al. pioneered combining the two techniques sequentially: first pruning redundant network connections, then quantizing the remaining weights. Later work such as CLIP-Q instead performs pruning and quantization jointly during the fine-tuning stage, rather than as two separate sequential steps."
+  },
+  {
+    "id": 14,
+    "question": "How does MPTs' approach to combining pruning and quantization differ from the standard sequential pipeline?",
+    "type": "multi-hop",
+    "reference_answer": "The standard approach (established by Han et al.) prunes an already-trained network and then quantizes the remaining weights. MPTs instead integrates pruning and quantization together on randomly-weighted, full-precision networks, obtaining binary weights and/or activations directly rather than pruning first and quantizing a trained model afterward."
+  },
+  {
+    "id": 15,
+    "question": "How does quantization's accuracy/compression trade-off compare to pruning and distillation, per the Low-bit Model Quantization survey?",
+    "type": "multi-hop",
+    "reference_answer": "The survey groups pruning, knowledge distillation, architecture design, and quantization together as the main model-compression strategies, all of which reduce computational cost at some risk of accuracy degradation. It states that quantization specifically achieves the most significant acceleration with minimum degradation among these approaches, describing it as reaching a favorable Pareto frontier relative to the others."
+  },
+  {
+    "id": 16,
+    "question": "How is knowledge distillation used to reduce the accuracy loss caused by quantizing vision models like DETR and ViT?",
+    "type": "multi-hop",
+    "reference_answer": "Q-DETR adds a Distribution Rectification Distillation loss to reduce the distortion between the quantized student's and full-precision teacher's detection queries. Q-ViT introduces distribution-guided distillation based on patch-wise similarity matrices to eliminate scale differences introduced by quantizing Vision Transformers. Both add a distillation loss on top of the standard quantization loss to keep the quantized model's outputs close to its full-precision counterpart."
+  },
+  {
+    "id": 17,
+    "question": "How does ZeroQuant's use of distillation during quantization differ from typical end-to-end approaches?",
+    "type": "multi-hop",
+    "reference_answer": "Most quantization-distillation methods compute the distillation loss end-to-end, comparing final outputs of the quantized student and full-precision teacher. ZeroQuant instead proposes Layer-by-Layer Knowledge Distillation, computing the quantization loss on a per-layer basis rather than end-to-end."
+  },
+  {
+    "id": 18,
+    "question": "How does GPUSQ-ViT combine feature distillation loss with its quantization loss?",
+    "type": "multi-hop",
+    "reference_answer": "GPUSQ-ViT's total quantization loss is a weighted sum of per-layer quantization losses, where each layer's weight factor is set inversely proportional to that layer's feature-distillation loss. Layers whose features are already well matched to the teacher (small distillation loss) are given a larger weight in the overall quantization objective."
+  },
+  {
+    "id": 19,
+    "question": "How does the ordering of pruning and distillation affect results, per Park and No's approach described in the pruning survey?",
+    "type": "multi-hop",
+    "reference_answer": "Park and No prune the teacher network first to make it more \"transferable,\" and only then distill the pruned teacher's knowledge into the student network — i.e., pruning is applied before distillation to improve how well the teacher's knowledge transfers, rather than distilling directly from the original, unpruned teacher."
+  },
+  {
+    "id": 20,
+    "question": "How does recovering accuracy after pruning via knowledge distillation compare to standard fine-tuning?",
+    "type": "multi-hop",
+    "reference_answer": "The pruning survey cites a result showing that a pruned network's accuracy, when recovered using knowledge distillation from the original (unpruned) network, performed better than when accuracy was regained through ordinary fine-tuning of the pruned network on the training data. This suggests distillation from the pre-pruning network is a more effective recovery method than fine-tuning alone."
+  }
+]
